@@ -1,25 +1,25 @@
 /*
- * tftlcdClock
- * 
- * Copyright 2019 Radu C
- * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
- * 
- * 
- */
+   tftlcdClock
+
+   Copyright 2019 Radu C
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.
+
+
+*/
 
 //Libraries
 //#include <avr/pgmspace.h>
@@ -72,6 +72,7 @@ uint8_t mode; // 0 = clock, 1 = BCD, 2 = setup
 uint8_t menui; //menuitem
 
 AvrEeprom anEeprom;
+DateTime now;
 
 
 
@@ -106,7 +107,7 @@ const char months [12] [CHARCOUNT] PROGMEM = {
   { "June" },
   { "July" },
   { "August" },
-  { "September" },
+  { "Septembe" },
   { "October" },
   { "November" },
   { "December" }
@@ -130,7 +131,7 @@ const char apm [2] [2 + 1] PROGMEM = {
   { "PM" }
 };
 
-const char wday [2] [6+1] PROGMEM = {
+const char wday [2] [6 + 1] PROGMEM = {
   { " Week " },
   { " Day " }
 };
@@ -387,7 +388,7 @@ void setup ()
 {
   Wire.begin();
   rtc.begin();
-  
+
   //DS18B20 tempp sensor
   sensor.begin();
   sensor.requestTemperatures();
@@ -409,15 +410,34 @@ void setup ()
   Serial.println (F(">"));
 #endif
   // read settings from EEPROM
-  // write an array to the rom.
-  anEeprom.readIntoMemArray((const unsigned char*)menuval,0, sizeof menuval);
-  for (int i = 0; i < sizeof menuval; i++) {
+  anEeprom.readIntoMemArray((const unsigned char*)menuval + 6, 0 + 6, sizeof menuval - 6); //skip rtc values 0-5
+  /*
+    // fix the values we read if the eeprom is empty
+    for (int i = 0; i < sizeof menuval; i++) {
     //Serial.println (menuval[i]);
-    if (menuval[i]==255) menuval[i]=0;  // if we did read 255 from eepron zero the parameter.
-  }
+    if (menuval[i]==255) menuval[i]=0;  // if we did read 255 from eeprom zero the parameter.
+    }
+    // fix Month and date if eeprom was empty, first start
+    if (menuval[2]==0) menuval[2] = 1; // Month Jan
+    if (menuval[3]==0) menuval[3] = 1; // Date 1
+  */
+
   //setRTCTime();
-  //menuval[6] = 1; // 1 = 12h, 0 = 24h
-  //menuval[7] = 0; //0 = digi, 1 = bcd
+  // read RTC values from clock chip
+  now = rtc.now();
+  menuval[0] = now.hour();
+  menuval[1] = now.minute();
+  menuval[2] = now.month();
+  menuval[3] = now.date();
+  menuval[4] = now.dayOfWeek();
+  menuval[5] = uint8_t(now.year() - 2000);
+
+
+  //minutes=100; //force update
+  //seconds=100;
+
+
+
   mode = menuval[7];  //set mode 0 = digi, 1 = bcd
 
 
@@ -447,16 +467,16 @@ void setup ()
     Serial.println(F(""));
     Serial.println (buffer);
     Serial.println (strlen(buffer));
-  
-  // Menu array in PROGMEM
-  MenuRecord thisItem;
-  PROGMEM_readAnything (&menu [4], thisItem);
-  Serial.println (thisItem.item);
-  Serial.println (thisItem.count);
-  //thisItem.set();
-  //read day of week from menu record *
-  memcpy_P (&buffer, &thisItem.values[4], CHARCOUNT);
-  Serial.println (buffer);
+
+    // Menu array in PROGMEM
+    MenuRecord thisItem;
+    PROGMEM_readAnything (&menu [4], thisItem);
+    Serial.println (thisItem.item);
+    Serial.println (thisItem.count);
+    //thisItem.set();
+    //read day of week from menu record *
+    memcpy_P (&buffer, &thisItem.values[4], CHARCOUNT);
+    Serial.println (buffer);
   */
 
   //iobuttons
@@ -475,8 +495,6 @@ void setup ()
   switches.addSwitch(minusbutton, onminusbutton, 25);
   switches.addSwitch(plusbutton, onminusbutton, 25);
 
-  //minutes=100; //force update
-  //seconds=100;
 
   // run the clock display
   taskManager.scheduleFixedRate(990, myclock);  //once per second+sync

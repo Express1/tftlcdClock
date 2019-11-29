@@ -79,12 +79,14 @@ void ptemp()
 {
 
   // RTC temp sensor
-  //rtc.convertTemperature();
-  //float temperaturec = rtc.getTemperature();
+  rtc.convertTemperature();
+  float temperaturec = rtc.getTemperature();
+  Serial.println(sensor.getTempC());
   //
 
   // DS18B20 temp sensor
-  float temperaturec = sensor.getTempC() - 0.5;
+  //float 
+  temperaturec = sensor.getTempC() - 0.5;
   //Serial.println(sensor.getTempC());
   sensor.requestTemperatures();
 
@@ -208,7 +210,8 @@ void clockdigi()
 
 void myclock()
 {
-  DateTime now = rtc.now();
+  //DateTime 
+  now = rtc.now();
   while (seconds == now.second())  //we wait for the next second
   {
     taskManager.yieldForMicros(1000);
