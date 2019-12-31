@@ -81,11 +81,12 @@ void ptemp()
   // RTC temp sensor
   rtc.convertTemperature();
   float temperaturec = rtc.getTemperature();
-  Serial.println(sensor.getTempC());
+  Serial.print(sensor.getTempC());
+  Serial.print(F(" "));
   //
 
   // DS18B20 temp sensor
-  //float 
+  //float
   temperaturec = sensor.getTempC() - 0.5;
   //Serial.println(sensor.getTempC());
   sensor.requestTemperatures();
@@ -137,6 +138,128 @@ void bcdp(uint8_t val, uint8_t x )
   }
 }
 
+
+void pyear()
+//DayWeekNumber: Calculate day of year and week of year
+// this routine does come from http://arduino.joergeli.de
+/*
+  menuval[0] hour 0-23
+  menuval[1] min 0 -59
+  menuval[2] month 1-12
+  menuval[3] dayofmonth 1-31
+  menuval[4] dayofweek 0-6, 0=Monday
+  menuval[5] year last 2 digits 19XX
+*/
+{
+  int days[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+  int DN, WN;
+  // Number of days at the beginning of the month in a not leap year.
+  //Start to calculate the number of day
+  if (menuval[2] == 1 || menuval[2] == 2) {
+    DN = days[(menuval[2] - 1)] + menuval[3]; //for any type of year, it calculate the number of days for January or february
+  }                                                          // Now, try to calculate for the other months
+  else if (((menuval[5] + 2000) % 4 == 0 && (menuval[5] + 2000) % 100 != 0) ||  (menuval[5] + 2000) % 400 == 0) { //those are the conditions to have a leap year
+    DN = days[(menuval[2] - 1)] + menuval[3] + 1;                              // if leap year, calculate in the same way but increasing one day
+  }
+  else {                                                     //if not a leap year, calculate in the normal way, such as January or Febr
+    DN = days[(menuval[2] - 1)] + menuval[3];
+  }
+  // Now start to calculate Week number
+  if (menuval[4] == 0) {
+    WN = (DN - 7 + 10) / 7;                                  //if it is sunday (time library returns 0)
+  }
+  else {
+    WN = (DN - menuval[4] + 10) / 7;                                  // for the other days of week
+  }
+
+  itoa ((menuval[5] + 2000), buffer, 10);
+  memcpy_P (&ast, wday[0], 7);
+  strcat(buffer, ast);
+  itoa (WN, ast, 10);
+  strcat(buffer, ast);
+  tftcprint(ILI9341_GREEN, 260, 2);
+  memcpy_P (&buffer, wday[1], 7);
+  //strcpy(buffer, " Day ");
+  itoa (DN, ast, 10);
+  strcat(buffer, ast);
+  tftcprint(ILI9341_GREEN, 280, 2);
+}
+
+
+void doalarm()
+{
+  // if (alarmon == 0) {
+  alarmon = 1;
+  alarmcount = 60;
+  //memcpy_P (&buffer, &alm, 6);
+  //tftcprint(ILI9341_RED, 260, 4);
+  doalarm1();
+  // }
+#ifdef debug_s
+  Serial.println (F("Alarm"));
+#endif
+
+}
+
+void doalarm1()
+{
+  if (alarmon == 1 && alarmcount > 0) {
+    taskManager.scheduleOnce(1000, doalarm1);
+    tone(PINSPK, 1000, 600);
+
+    memcpy_P (&buffer, &alm, 6);
+    if (alarmcount % 2 == 0) {
+      tftcprint(ILI9341_RED, 260, 5);
+    }
+    else {
+      tftcprint(ILI9341_BLACK, 260, 5);
+    }
+
+    alarmcount--;
+#ifdef debug_s
+    //Serial.println(alarmcount);
+    //Serial.println(millis());
+#endif
+  }
+  else {
+    alarmon = 0;
+    memcpy_P (&buffer, &alm, 6);
+    tftcprint(ILI9341_BLACK, 260, 5);
+    pyear();
+    //setexit3();
+  }
+}
+
+
+void pdate()
+{
+  //cleanup
+  clearrow(150, 2);
+  //tftcprint(ILI9341_GREEN, 150, 2);
+  //get day of week string
+  memcpy_P (&buffer, &dayofweek[menuval[4]], CHARCOUNT);
+  tftcprint(ILI9341_GREEN, 150, 2);
+
+#ifdef debug_s
+  Serial.print(buffer);
+  Serial.print(F(" "));
+#endif
+  //cleanup
+  clearrow(170, 2);
+  //get month string
+  //tftcprint(ILI9341_GREEN, 170, 2);
+  memcpy_P (&buffer, &months[menuval[2] - 1], CHARCOUNT);
+  itoa (menuval[3], ast, 10);
+  strcat(buffer, " ");
+  strcat(buffer, ast);
+  tftcprint(ILI9341_GREEN, 170, 2);
+
+#ifdef debug_s
+  Serial.println(buffer);
+#endif
+}
+
+
 void clockbcd()
 {
   bcdp(seconds / 10, 6);
@@ -153,7 +276,8 @@ void clockbcd()
 #ifdef debug_s
   Serial.print(hours1);
   Serial.print(F("%"));
-  Serial.println(menuval[1]);
+  Serial.print(menuval[1]);
+  Serial.print(F(" "));
 #endif
 }
 
@@ -202,7 +326,8 @@ void clockdigi()
   tftcprint(ILI9341_WHITE, 80, 8);
 
 #ifdef debug_s
-  Serial.println(buffer);
+  Serial.print(buffer);
+  Serial.print(F(" "));
 #endif
 
 }
@@ -210,7 +335,6 @@ void clockdigi()
 
 void myclock()
 {
-  //DateTime 
   now = rtc.now();
   while (seconds == now.second())  //we wait for the next second
   {
@@ -218,13 +342,6 @@ void myclock()
     now = rtc.now(); //get the current date-time
   }
   seconds = now.second();
-
-  // 12 hours menuval[6] 0=24h 1=12h
-  //uint8_t hours1;
-  hours1 = menuval[0];
-  ;
-  if (hours1 > 12) hours1 = hours1 - menuval[6] * 12;
-  if (hours1 < 1) hours1 = hours1 + menuval[6] * 12;
 
   // update bcdclock once per sec
   if (mode == 1) clockbcd();
@@ -253,8 +370,14 @@ void myclock()
     menuval[5] = uint8_t(now.year() - 2000);
     //
     minutes = now.minute();
+
     // update clockdigi
+    hours1 = menuval[0];  //AM/PM hour correction
+    if (hours1 > 12) hours1 = hours1 - menuval[6] * 12;
+    if (hours1 < 1) hours1 = hours1 + menuval[6] * 12;
+
     if (mode == 0) clockdigi();
+
     ptemp(); // show temp once per min
 
     // check for alarm
@@ -276,135 +399,54 @@ void myclock()
       hours = now.hour();
       pdate();
       pyear();
+
+      // set LCD backlight for day/night
+      if (menuval[0] == STARTNIGHT)
+        analogWrite(PINTFTLED, menuval[16]);
+
+      if (menuval[0] == STARTDAY)
+        analogWrite(PINTFTLED, menuval[15]);
+
+
+      // check for DST
+      //DST on
+      if (menuval[12] == menuval[2]) //month
+      {
+        int wn;
+        if ((menuval[3] - 7) > 0)
+        { wn = (menuval[3] - 7) / 7 + 1;
+          //else
+          //  wn = 0;
+          if (wn == menuval[11] && menuval[0] == 2) // week numer, 2AM
+          {
+            DateTime now = rtc.now(); //DST on + 1 hour
+            DateTime dt(now.year(), now.month(), now.date(), now.hour() + 1, now.minute(), now.second(), now.dayOfWeek());
+            // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
+            rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
+          }
+        }
+      }
+
+      //DST off
+      if (menuval[14] == menuval[2]) //month
+      {
+        int wn;
+        if ((menuval[3] - 7) > 0)
+        { wn = (menuval[3] - 7) / 7 + 1;
+          //else
+          //  wn = 0;
+          if (wn == menuval[13] && menuval[0] == 2) // week numer, 2AM
+          {
+            DateTime now = rtc.now(); //DST off - 1 hour
+            DateTime dt(now.year(), now.month(), now.date(), now.hour() - 1, now.minute(), now.second(), now.dayOfWeek());
+            // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
+            rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
+          }
+        }
+      }
+
     }
   }
-}
-
-void doalarm()
-{
-  // if (alarmon == 0) {
-  alarmon = 1;
-  alarmcount = 60;
-  //memcpy_P (&buffer, &alm, 6);
-  //tftcprint(ILI9341_RED, 260, 4);
-  doalarm1();
-  // }
-#ifdef debug_s
-  Serial.println (F("Alarm"));
-#endif
-
-}
-
-void doalarm1()
-{
-  if (alarmon == 1 && alarmcount > 0) {
-    taskManager.scheduleOnce(1000, doalarm1);
-    tone(PINSPK, 1000, 600);
-
-    memcpy_P (&buffer, &alm, 6);
-    if (alarmcount % 2 == 0) {
-      tftcprint(ILI9341_RED, 260, 4);
-    }
-    else {
-      tftcprint(ILI9341_BLACK, 260, 4);
-    }
-
-    alarmcount--;
-#ifdef debug_s
-    //Serial.println(alarmcount);
-    //Serial.println(millis());
-#endif
-  }
-  else {
-    alarmon = 0;
-    memcpy_P (&buffer, &alm, 6);
-    tftcprint(ILI9341_BLACK, 260, 4);
-    //setexit3();
-  }
-}
-
-
-void pdate()
-{
-  //cleanup
-  clearrow(150, 2);
-  //tftcprint(ILI9341_GREEN, 150, 2);
-  //get day of week string
-  memcpy_P (&buffer, &dayofweek[menuval[4]], CHARCOUNT);
-  tftcprint(ILI9341_GREEN, 150, 2);
-
-#ifdef debug_s
-  Serial.print(buffer);
-  Serial.print(F(" "));
-#endif
-  //cleanup
-  clearrow(170, 2);
-  //get month string
-  //tftcprint(ILI9341_GREEN, 170, 2);
-  memcpy_P (&buffer, &months[menuval[2] - 1], CHARCOUNT);
-  itoa (menuval[3], ast, 10);
-  strcat(buffer, " ");
-  strcat(buffer, ast);
-  tftcprint(ILI9341_GREEN, 170, 2);
-
-#ifdef debug_s
-  Serial.println(buffer);
-#endif
-}
-
-void pyear()
-//DayWeekNumber: Calculate day of year and week of year
-
-/*
-  menuval[0] hour 0-23
-  menuval[1] min 0 -59
-  menuval[2] month 1-12
-  menuval[3] dayofmonth 1-31
-  menuval[4] dayofweek 0-6, 0=Monday
-  menuval[5] year last 2 digits 19XX
-  menuval[6] 0=24h, 1=12h
-  menuval[7] 0=digi, 1=bcd
-  menuval[8] alarm hour
-  menuval[9] alarm min
-  menuval[10] alarm days 0=off, 1=on, 2=workdays
-*/
-// void DayWeekNumber(unsigned int y, unsigned int m, unsigned int d, unsigned int w)
-{
-  int days[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-  int DN, WN;
-  // Number of days at the beginning of the month in a not leap year.
-  //Start to calculate the number of day
-  if (menuval[2] == 1 || menuval[2] == 2) {
-    DN = days[(menuval[2] - 1)] + menuval[3]; //for any type of year, it calculate the number of days for January or february
-  }                                                          // Now, try to calculate for the other months
-  else if (((menuval[5] + 2000) % 4 == 0 && (menuval[5] + 2000) % 100 != 0) ||  (menuval[5] + 2000) % 400 == 0) { //those are the conditions to have a leap year
-    DN = days[(menuval[2] - 1)] + menuval[3] + 1;                              // if leap year, calculate in the same way but increasing one day
-  }
-  else {                                                     //if not a leap year, calculate in the normal way, such as January or Febr
-    DN = days[(menuval[2] - 1)] + menuval[3];
-  }
-  // Now start to calculate Week number
-  if (menuval[4] == 0) {
-    WN = (DN - 7 + 10) / 7;                                  //if it is sunday (time library returns 0)
-  }
-  else {
-    WN = (DN - menuval[4] + 10) / 7;                                  // for the other days of week
-  }
-
-  //cleanup
-  //clearrow(170, 2);
-  
-  itoa ((menuval[5] + 2000), buffer, 10);
-  memcpy_P (&ast, wday[0], 7);
-  strcat(buffer, ast);
-  itoa (WN, ast, 10);
-  strcat(buffer, ast);
-  tftcprint(ILI9341_GREEN, 260, 2);
-  memcpy_P (&buffer, wday[1], 7);
-  //strcpy(buffer, " Day ");
-  itoa (DN, ast, 10);
-  strcat(buffer, ast);
-  tftcprint(ILI9341_GREEN, 280, 2);
 }
 
 

@@ -1,7 +1,8 @@
 /*
-   tftlcdClock
+   tft lcd Clock Arduino Clock
 
-   Copyright 2019 Radu C
+   Copyright 2019 Radu Constantinescu
+   https://github.com/Express1/tftlcdClock
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,8 +18,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
    MA 02110-1301, USA.
-
-
 */
 
 //Libraries
@@ -53,6 +52,10 @@ DS18B20 sensor(&oneWire);
 #define PINTFTLED 5
 #define PINSPK 3
 
+// used to change the LCD backlight, military time
+#define STARTDAY 7
+#define STARTNIGHT 22
+
 // buttons
 const int menubutton = A1;
 const int minusbutton = 2;
@@ -75,7 +78,6 @@ AvrEeprom anEeprom;
 DateTime now;
 
 
-
 //Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 //https://forum.developer.sony.com/topic/59/hardware-spi-not-working-for-ili9340-9341-tft-display-sw-spi-does/5
 // Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
@@ -86,12 +88,12 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC); //HARDWARE SPI, fast
 // we define all the strings in PROGMEM
 
 // max# of char in the array+1
-const int CHARCOUNT = 9;
+const int CHARCOUNT = 10;
 
 const char dayofweek [7] [CHARCOUNT] PROGMEM = {
   { "Monday" },
   { "Tuesday" },
-  { "Wenesday" },
+  { "Wednesday" },
   { "Thursday" },
   { "Friday" },
   { "Saturday" },
@@ -107,7 +109,7 @@ const char months [12] [CHARCOUNT] PROGMEM = {
   { "June" },
   { "July" },
   { "August" },
-  { "Septembe" },
+  { "September" },
   { "October" },
   { "November" },
   { "December" }
@@ -136,34 +138,18 @@ const char wday [2] [6 + 1] PROGMEM = {
   { " Day " }
 };
 
-const char alarmdays1 [3] [9] PROGMEM = {
+const char alarmdays1 [3] [CHARCOUNT] PROGMEM = {
   { "AlarmOff" },
   { "Alarm On" },
   { "Workdays" }
 };
-const int MENUCOUNT = 12;
+const int MENUCOUNT = 18;
 uint8_t menuval[MENUCOUNT];   // values for menu items
-
-struct MenuRecord
-{
-  uint8_t start;  // start at 0 or 1 or
-  uint8_t count;  // how many, last is start+count-1
-  char item[12 + 1]; // menu choice text to display
-  char (*values)[CHARCOUNT];
-  void (*set)();  // setup routine, call if we press set for an item
-};
-
-
-
-
-//void tftcprint(uint16_t color, int y, int textSize);
-//void myclock();
 
 // menu callback routines
 
 // set time
 void settime1 (void) {
-
   DateTime now = rtc.now(); // keep seconds
   //int year = menuval[5] + 2000;
   //Serial.print(F("YYY"));
@@ -174,6 +160,16 @@ void settime1 (void) {
   mode = 3; //go back to setup
   //Serial.println (F("Routine 1"));
 }
+
+void settimemin (void) {
+  DateTime now = rtc.now(); // reset seconds 
+  DateTime dt((menuval[5] + 2000), menuval[2], menuval[3], menuval[0], menuval[1], 0, menuval[4]);
+  // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
+  rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
+  mode = 3; //go back to setup
+}
+
+
 
 void exitmenu2 (void) {
   mode = 3; //go back to setup
@@ -196,15 +192,30 @@ void setexit3 (void) {
   //Serial.println (F("Routine 3"));
 }
 
+void setlcd (void) {
+  analogWrite(PINTFTLED, menuval[15]);
+  mode = 3; //go back to setup
+}
+
+void setlcdn (void) {
+  analogWrite(PINTFTLED, menuval[16]);
+  mode = 3; //go back to setup
+}
 // if you want to understand how this does work read
 // https://arduino.stackexchange.com/questions/13545/using-progmem-to-store-array-of-structs
 
-
-
+struct MenuRecord
+{
+  uint8_t start;  // start at 0 or 1 or
+  uint8_t count;  // how many, last is start+count-1
+  char item[12 + 1]; // menu choice text to display
+  char (*values)[CHARCOUNT];
+  void (*set)();  // setup routine, call if we press set for an item
+};
 
 const MenuRecord menu[MENUCOUNT] PROGMEM = {
   { 0, 23, "Time hour", NULL , settime1 }
-  , { 0, 59, "Time min", NULL , settime1 }
+  , { 0, 59, "Time min", NULL , settimemin }
   , { 1, 12, "Month", months , settime1 }
   , { 1, 31, "Date", NULL, settime1 }
   , { 0, 6, "Day of week", dayofweek, settime1 }
@@ -214,11 +225,13 @@ const MenuRecord menu[MENUCOUNT] PROGMEM = {
   , { 0, 23, "Alarm hour", NULL, exitmenu2 }
   , { 0, 59, "Alarm min", NULL, exitmenu2 }
   , { 0, 2, "Alarm Days", alarmdays1 , exitmenu2 }
+  , { 1, 31, "DSTonWeek", NULL , exitmenu2 }
+  , { 1, 12, "DSTonMo", NULL , exitmenu2 }
+  , { 1, 31, "DSToffWeek", NULL , exitmenu2 }
+  , { 1, 12, "DSToffMo", NULL , exitmenu2 }
+  , { 10, 255, "LCD Day", NULL , setlcd }
+  , { 10, 255, "LCD Night", NULL , setlcdn }
   , { 0, 1, "Exit Setup", NULL, setexit3 }
-
-  /*
-       , { 1, 12, "Luminosity",routine3 }
-  */
 };
 
 
@@ -234,9 +247,13 @@ const MenuRecord menu[MENUCOUNT] PROGMEM = {
   menuval[8] alarm hour
   menuval[9] alarm min
   menuval[10] alarm days 0=off, 1=on, 2=workdays
+  menuval[11] DST on Week
+  menuval[12] DST on Mo
+  menuval[13] DST off Week
+  menuval[14] DST off Mo
+  menuval[15] LCD Light Day
+  menuval[16] LCD Light Night
 */
-
-
 
 
 void clearrow(int y, int textsize)
@@ -250,8 +267,10 @@ void onmenubutton(uint8_t pin, bool heldDown) {
   if (alarmon == 1) { //alarm stop
     alarmon = 0;
     noTone(PINSPK);
+    // clear screen, print year info
     memcpy_P (&buffer, &alm, 6);
     tftcprint(ILI9341_BLACK, 260, 4);
+    pyear();
   }
   else
   {
@@ -399,7 +418,7 @@ void setup ()
 
   //lcd backlight
   pinMode(PINTFTLED, OUTPUT);
-  analogWrite(PINTFTLED, 32);
+  
 
   //speaker
   pinMode(PINSPK, OUTPUT);
@@ -411,18 +430,23 @@ void setup ()
 #endif
   // read settings from EEPROM
   anEeprom.readIntoMemArray((const unsigned char*)menuval + 6, 0 + 6, sizeof menuval - 6); //skip rtc values 0-5
-  /*
-    // fix the values we read if the eeprom is empty
-    for (int i = 0; i < sizeof menuval; i++) {
-    //Serial.println (menuval[i]);
-    if (menuval[i]==255) menuval[i]=0;  // if we did read 255 from eeprom zero the parameter.
-    }
-    // fix Month and date if eeprom was empty, first start
-    if (menuval[2]==0) menuval[2] = 1; // Month Jan
-    if (menuval[3]==0) menuval[3] = 1; // Date 1
-  */
 
+  // fix the values we read if the eeprom is empty
+  for (int i = 0; i < sizeof menuval; i++) {
+    //Serial.println (menuval[i]);
+    if (menuval[i] == 255) menuval[i] = 0; // if we did read 255 from eeprom zero the parameter.
+  }
+  // fix Month and date if eeprom was empty, first start
+  if (menuval[2] == 0) menuval[2] = 1; // Month Jan
+  if (menuval[3] == 0) menuval[3] = 1; // Date 1
+
+  // LCD Backlight
+  if (menuval[15] < 10) menuval[15] = 10;  //otherwise we cannot see the display
+  if (menuval[16] < 10) menuval[16] = 10;  
+  analogWrite(PINTFTLED, menuval[15]);  // we start the clock durring day
+  
   //setRTCTime();
+  
   // read RTC values from clock chip
   now = rtc.now();
   menuval[0] = now.hour();
@@ -432,15 +456,12 @@ void setup ()
   menuval[4] = now.dayOfWeek();
   menuval[5] = uint8_t(now.year() - 2000);
 
-
-  //minutes=100; //force update
-  //seconds=100;
-
-
+  // hours, AM/PM correction
+  hours1 = menuval[0];
+  if (hours1 > 12) hours1 = hours1 - menuval[6] * 12;
+  if (hours1 < 1) hours1 = hours1 + menuval[6] * 12;
 
   mode = menuval[7];  //set mode 0 = digi, 1 = bcd
-
-
 
   /*
     for (int i = 0; i < 12; i++)
