@@ -235,9 +235,8 @@ void pdate()
 {
   //cleanup
   clearrow(150, 2);
-  //tftcprint(ILI9341_GREEN, 150, 2);
   //get day of week string
-  memcpy_P (&buffer, &dayofweek[menuval[4]], CHARCOUNT);
+  memcpy_P (&buffer, &dayofweek[menuval[4] - 1], CHARCOUNT);
   tftcprint(ILI9341_GREEN, 150, 2);
 
 #ifdef debug_s
@@ -384,12 +383,13 @@ void myclock()
     //menuval[8] alarm hour
     //menuval[9] alarm min
     //menuval[10] alarm days 0=off, 1=on, 2=workdays
+    /*Su=1 Mo=2 Tu=3 We=4 Th=5 Fr=6 Sa=7 */
     if (menuval[8] == menuval[0] && menuval[9] == menuval[1] && menuval[10] > 0) {
       // alarm on, check day
       if (menuval[10] == 1) { //each day
         doalarm();
       }
-      else if (menuval[10] == 2 && menuval[4] < 5) { //weekdays only
+      else if (menuval[10] == 2 && menuval[4] > 1 && menuval[4] < 7) { //weekday menuval[4]
         doalarm();
       }
     }
@@ -412,36 +412,24 @@ void myclock()
       //DST on
       if (menuval[12] == menuval[2]) //month
       {
-        int wn;
-        if ((menuval[3] - 7) > 0)
-        { wn = (menuval[3] - 7) / 7 + 1;
-          //else
-          //  wn = 0;
-          if (wn == menuval[11] && menuval[0] == 2) // week numer, 2AM
-          {
-            DateTime now = rtc.now(); //DST on + 1 hour
-            DateTime dt(now.year(), now.month(), now.date(), now.hour() + 1, now.minute(), now.second(), now.dayOfWeek());
-            // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
-            rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
-          }
+        if (((menuval[3] + 1) / 7 + 1) == menuval[11] && menuval[0] == 2 && menuval[4] == 1) // week numer, 2AM, Sunday=day 1
+        {
+          DateTime now = rtc.now(); //DST on + 1 hour
+          DateTime dt(now.year(), now.month(), now.date(), now.hour() + 1, now.minute(), now.second(), now.dayOfWeek());
+          // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
+          rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
         }
       }
 
       //DST off
       if (menuval[14] == menuval[2]) //month
       {
-        int wn;
-        if ((menuval[3] - 7) > 0)
-        { wn = (menuval[3] - 7) / 7 + 1;
-          //else
-          //  wn = 0;
-          if (wn == menuval[13] && menuval[0] == 2) // week numer, 2AM
-          {
-            DateTime now = rtc.now(); //DST off - 1 hour
-            DateTime dt(now.year(), now.month(), now.date(), now.hour() - 1, now.minute(), now.second(), now.dayOfWeek());
-            // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
-            rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
-          }
+        if (((menuval[3] + 1) / 7 + 1) == menuval[13] && menuval[0] == 2 && menuval[4] == 1) // week numer, 2AM, sunday
+        {
+          DateTime now = rtc.now(); //DST off - 1 hour
+          DateTime dt(now.year(), now.month(), now.date(), now.hour() - 1, now.minute(), now.second(), now.dayOfWeek());
+          // Year, Month, Day, Hour, Minutes, Seconds, Day of Week
+          rtc.setDateTime(dt); //Adjust date-time as defined 'dt' above
         }
       }
 

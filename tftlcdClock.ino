@@ -20,6 +20,8 @@
    MA 02110-1301, USA.
 */
 
+//11/1/2020 fix DOW and DST
+
 //Libraries
 //#include <avr/pgmspace.h>
 #include<IoAbstraction.h>
@@ -90,14 +92,15 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC); //HARDWARE SPI, fast
 // max# of char in the array+1
 const int CHARCOUNT = 10;
 
+/*Su=1 Mo=2 Tu=3 We=4 Th=5 Fr=6 Sa=7 */
 const char dayofweek [7] [CHARCOUNT] PROGMEM = {
+  { "Sunday" },
   { "Monday" },
   { "Tuesday" },
   { "Wednesday" },
   { "Thursday" },
   { "Friday" },
   { "Saturday" },
-  { "Sunday" },
 };
 
 const char months [12] [CHARCOUNT] PROGMEM = {
@@ -218,17 +221,17 @@ const MenuRecord menu[MENUCOUNT] PROGMEM = {
   , { 0, 59, "Time min", NULL , settimemin }
   , { 1, 12, "Month", months , settime1 }
   , { 1, 31, "Date", NULL, settime1 }
-  , { 0, 6, "Day of week", dayofweek, settime1 }
+  , { 1, 7, "Day of week", dayofweek, settime1 }
   , { 19, 199, "Year", NULL, settime1 }
   , { 0, 1, "Clock 12/24H", h1224, setexit3 }
   , { 0, 1, "Clock mode", clmode, setexit3 }
   , { 0, 23, "Alarm hour", NULL, exitmenu2 }
   , { 0, 59, "Alarm min", NULL, exitmenu2 }
   , { 0, 2, "Alarm Days", alarmdays1 , exitmenu2 }
-  , { 1, 31, "DSTonWeek", NULL , exitmenu2 }
-  , { 1, 12, "DSTonMo", NULL , exitmenu2 }
-  , { 1, 31, "DSToffWeek", NULL , exitmenu2 }
-  , { 1, 12, "DSToffMo", NULL , exitmenu2 }
+  , { 0, 5, "DSTonWeek", NULL , exitmenu2 }
+  , { 0, 12, "DSTonMo", NULL , exitmenu2 }
+  , { 0, 5, "DSToffWeek", NULL , exitmenu2 }
+  , { 0, 12, "DSToffMo", NULL , exitmenu2 }
   , { 10, 255, "LCD Day", NULL , setlcd }
   , { 10, 255, "LCD Night", NULL , setlcdn }
   , { 0, 1, "Exit Setup", NULL, setexit3 }
@@ -240,7 +243,7 @@ const MenuRecord menu[MENUCOUNT] PROGMEM = {
   menuval[1] min 0 -59
   menuval[2] month 1-12
   menuval[3] dayofmonth 1-31
-  menuval[4] dayofweek 0-6, 0=Monday
+  menuval[4] dayofweek 1-7, 1=Monday
   menuval[5] year last 2 digits 19XX
   menuval[6] 0=24h, 1=12h
   menuval[7] 0=digi, 1=bcd
